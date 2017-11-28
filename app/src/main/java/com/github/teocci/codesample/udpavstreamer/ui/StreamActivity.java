@@ -5,7 +5,6 @@ import android.content.Context;
 import android.hardware.Camera;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.PowerManager;
 import android.view.KeyEvent;
 import android.view.Surface;
@@ -17,7 +16,7 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import com.github.teocci.codesample.udpavstreamer.R;
-import com.github.teocci.codesample.udpavstreamer.av.CvCameraPreview;
+import com.github.teocci.codesample.udpavstreamer.av.CustomCameraPreview;
 import com.github.teocci.codesample.udpavstreamer.utils.LogHelper;
 
 import org.bytedeco.javacpp.opencv_core.Mat;
@@ -25,8 +24,6 @@ import org.bytedeco.javacv.FFmpegFrameRecorder;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.FrameRecorder;
 import org.bytedeco.javacv.OpenCVFrameConverter;
-
-import java.io.File;
 
 import static org.bytedeco.javacpp.avcodec.AV_CODEC_ID_H264;
 import static org.bytedeco.javacpp.avcodec.AV_CODEC_ID_NONE;
@@ -36,14 +33,14 @@ import static org.bytedeco.javacpp.avcodec.AV_CODEC_ID_NONE;
  *
  * @author teocci@yandex.com on 2017-Feb-02
  */
-public class StreamActivity extends Activity implements OnClickListener, CvCameraPreview.CvCameraViewListener
+public class StreamActivity extends Activity implements OnClickListener, CustomCameraPreview.CvCameraViewListener
 {
     private final static String TAG = LogHelper.makeLogTag(StreamActivity.class);
     private final static String CLASS_LABEL = StreamActivity.class.getName();
     
     private PowerManager.WakeLock wakeLock;
     private boolean recording;
-    private CvCameraPreview cameraView;
+    private CustomCameraPreview cameraView;
     private Button btnRecorderControl;
     private FFmpegFrameRecorder recorder;
     private long startTime = 0;
@@ -60,13 +57,9 @@ public class StreamActivity extends Activity implements OnClickListener, CvCamer
 
         setContentView(R.layout.activity_record);
 
-        cameraView = (CvCameraPreview) findViewById(R.id.camera_view);
+        cameraView = (CustomCameraPreview) findViewById(R.id.camera_view);
 
-        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        if (pm != null) {
-            wakeLock = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK, CLASS_LABEL);
-            wakeLock.acquire();
-        }
+        initPartialWakeLock();
 
         initLayout();
     }
@@ -77,9 +70,7 @@ public class StreamActivity extends Activity implements OnClickListener, CvCamer
         super.onResume();
 
         if (wakeLock == null) {
-            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-            wakeLock = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK, CLASS_LABEL);
-            wakeLock.acquire();
+            initPartialWakeLock();
         }
     }
 
@@ -130,6 +121,68 @@ public class StreamActivity extends Activity implements OnClickListener, CvCamer
         return super.onKeyDown(keyCode, event);
     }
 
+    @Override
+    public void onClick(View v)
+    {
+        if (!recording) {
+            startRecording();
+            recording = true;
+            LogHelper.i(TAG, "Start Button Pushed");
+            btnRecorderControl.setText("Stop");
+            btnRecorderControl.setBackgroundResource(R.drawable.bg_red_circle_button);
+        } else {
+            // This will trigger the audio recording loop to stop and then set isRecorderStart = false;
+            stopRecording();
+            recording = false;
+            LogHelper.i(TAG, "Stop Button Pushed");
+//            btnRecorderControl.setText("Start");
+            btnRecorderControl.setVisibility(View.GONE);
+            Toast.makeText(this, "Stream stopped", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    public void onCameraViewStarted(int width, int height)
+    {
+        initRecorder(width, height);
+    }
+
+    @Override
+    public void onCameraViewStopped()
+    {
+        stopRecording();
+    }
+
+    @Override
+    public Mat onCameraFrame(Mat mat)
+    {
+        if (recording && mat != null) {
+            synchronized (semaphore) {
+                try {
+                    Frame frame = converterToMat.convert(mat);
+                    long t = 1000 * (System.currentTimeMillis() - startTime);
+                    if (t > recorder.getTimestamp()) {
+                        recorder.setTimestamp(t);
+                    }
+                    recorder.record(frame);
+                } catch (FFmpegFrameRecorder.Exception e) {
+                    LogHelper.i(TAG, e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+        }
+        return mat;
+    }
+
+    private void initPartialWakeLock()
+    {
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        if (pm != null) {
+            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, CLASS_LABEL);
+            wakeLock.acquire();
+        }
+    }
+
     private void initLayout()
     {
         btnRecorderControl = (Button) findViewById(R.id.recorder_control);
@@ -149,10 +202,10 @@ public class StreamActivity extends Activity implements OnClickListener, CvCamer
                 + degree + " and isFrontFaceCamera = " + isFrontFaceCamera);
         int frameWidth, frameHeight;
         /*
-         0 = 90CounterCLockwise and Vertical Flip (default)
-         1 = 90Clockwise
-         2 = 90CounterClockwise
-         3 = 90Clockwise and Vertical Flip
+         0 = 90 CounterClockwise and Vertical Flip (default)
+         1 = 90 Clockwise
+         2 = 90 CounterClockwise
+         3 = 90 Clockwise and Vertical Flip
          */
         switch (degree) {
             case 0:
@@ -285,58 +338,5 @@ public class StreamActivity extends Activity implements OnClickListener, CvCamer
             }
             recorder = null;
         }
-    }
-
-    @Override
-    public void onClick(View v)
-    {
-        if (!recording) {
-            startRecording();
-            recording = true;
-            LogHelper.i(TAG, "Start Button Pushed");
-            btnRecorderControl.setText("Stop");
-            btnRecorderControl.setBackgroundResource(R.drawable.bg_red_circle_button);
-        } else {
-            // This will trigger the audio recording loop to stop and then set isRecorderStart = false;
-            stopRecording();
-            recording = false;
-            LogHelper.i(TAG, "Stop Button Pushed");
-//            btnRecorderControl.setText("Start");
-            btnRecorderControl.setVisibility(View.GONE);
-            Toast.makeText(this, "Stream stopped", Toast.LENGTH_LONG).show();
-        }
-    }
-
-    @Override
-    public void onCameraViewStarted(int width, int height)
-    {
-        initRecorder(width, height);
-    }
-
-    @Override
-    public void onCameraViewStopped()
-    {
-        stopRecording();
-    }
-
-    @Override
-    public Mat onCameraFrame(Mat mat)
-    {
-        if (recording && mat != null) {
-            synchronized (semaphore) {
-                try {
-                    Frame frame = converterToMat.convert(mat);
-                    long t = 1000 * (System.currentTimeMillis() - startTime);
-                    if (t > recorder.getTimestamp()) {
-                        recorder.setTimestamp(t);
-                    }
-                    recorder.record(frame);
-                } catch (FFmpegFrameRecorder.Exception e) {
-                    LogHelper.i(TAG, e.getMessage());
-                    e.printStackTrace();
-                }
-            }
-        }
-        return mat;
     }
 }

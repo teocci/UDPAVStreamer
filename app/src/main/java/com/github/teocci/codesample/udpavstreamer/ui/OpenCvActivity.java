@@ -6,7 +6,7 @@ import android.os.Bundle;
 import android.support.annotation.Nullable;
 
 import com.github.teocci.codesample.udpavstreamer.R;
-import com.github.teocci.codesample.udpavstreamer.av.CvCameraPreview;
+import com.github.teocci.codesample.udpavstreamer.av.CustomCameraPreview;
 import com.github.teocci.codesample.udpavstreamer.utils.LogHelper;
 import com.github.teocci.codesample.udpavstreamer.utils.StorageHelper;
 
@@ -27,13 +27,13 @@ import static org.bytedeco.javacpp.opencv_objdetect.CascadeClassifier;
  *
  * @author teocci@yandex.com on 2017-Feb-02
  */
-public class OpenCvActivity extends Activity implements CvCameraPreview.CvCameraViewListener
+public class OpenCvActivity extends Activity implements CustomCameraPreview.CvCameraViewListener
 {
     private final static String TAG = LogHelper.makeLogTag(OpenCvActivity.class);
 
     private CascadeClassifier faceDetector;
     private int absoluteFaceSize = 0;
-    private CvCameraPreview cameraView;
+    private CustomCameraPreview cameraView;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState)
@@ -42,7 +42,7 @@ public class OpenCvActivity extends Activity implements CvCameraPreview.CvCamera
 
         setContentView(R.layout.activity_opencv);
 
-        cameraView = (CvCameraPreview) findViewById(R.id.camera_view);
+        cameraView = (CustomCameraPreview) findViewById(R.id.camera_view);
         cameraView.setCvCameraViewListener(this);
 
         new AsyncTask<Void, Void, Void>()

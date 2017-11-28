@@ -41,12 +41,14 @@ import static org.bytedeco.javacpp.avutil.AV_PIX_FMT_NV21;
  * It MUST be an extension of the {@link SurfaceView} class.<br />
  * It also needs to implement some other interfaces like {@link SurfaceHolder.Callback}
  * (to react to SurfaceView events)
+ * <p>
+ * Created by teocci.
  *
- * @author alessandrofrancesconi, hunghd
+ * @author teocci@yandex.com on 2017-Feb-02
  */
-public class CvCameraPreview extends SurfaceView implements SurfaceHolder.Callback, PreviewCallback
+public class CustomCameraPreview extends SurfaceView implements SurfaceHolder.Callback, PreviewCallback
 {
-    private final static String TAG = LogHelper.makeLogTag(CvCameraPreview.class);
+    private final static String TAG = LogHelper.makeLogTag(CustomCameraPreview.class);
 
     private static final int STOPPED = 0;
     private static final int STARTED = 1;
@@ -72,7 +74,7 @@ public class CvCameraPreview extends SurfaceView implements SurfaceHolder.Callba
      * by the Camera object. Note that this should not be intended as
      * the final, exact, dimension because the device could not support
      * it and a lower value is required (but the aspect ratio should remain the same).<br />
-     * See {@link CvCameraPreview#getBestSize(List, int)} for more information.
+     * See {@link CustomCameraPreview#getBestSize(List, int)} for more information.
      */
     private final int PREVIEW_MAX_WIDTH = 640;
 
@@ -86,7 +88,7 @@ public class CvCameraPreview extends SurfaceView implements SurfaceHolder.Callba
 
     /**
      * In this example we look at camera preview buffer functionality too.<br />
-     * This is the array that will be filled everytime a single preview frame is
+     * This is the array that will be filled every time a single preview frame is
      * ready to be processed (for example when we want to show to the user
      * a transformed preview instead of the original one, or when we want to
      * make some image analysis in real-time without taking full-sized pictures).
@@ -119,19 +121,19 @@ public class CvCameraPreview extends SurfaceView implements SurfaceHolder.Callba
     private int frameWidth, frameHeight;
     private int scaleType = SCALE_FIT;
 
-    public CvCameraPreview(Context context, AttributeSet attrs)
+    public CustomCameraPreview(Context context, AttributeSet attrs)
     {
         super(context, attrs);
 
-        TypedArray array = getContext().obtainStyledAttributes(attrs, R.styleable.CvCameraPreview);
-        int camType = array.getInt(R.styleable.CvCameraPreview_camera_type, CAMERA_BACK);
-        int scaleType = array.getInt(R.styleable.CvCameraPreview_scale_type, SCALE_FIT);
+        TypedArray array = getContext().obtainStyledAttributes(attrs, R.styleable.CustomCameraPreview);
+        int camType = array.getInt(R.styleable.CustomCameraPreview_camera_type, CAMERA_BACK);
+        int scaleType = array.getInt(R.styleable.CustomCameraPreview_scale_type, SCALE_FIT);
         array.recycle();
 
         initializer(camType == CAMERA_BACK ? Camera.CameraInfo.CAMERA_FACING_BACK : Camera.CameraInfo.CAMERA_FACING_FRONT, scaleType);
     }
 
-    public CvCameraPreview(Context context, int camType, int scaleType)
+    public CustomCameraPreview(Context context, int camType, int scaleType)
     {
         super(context);
 
@@ -177,7 +179,7 @@ public class CvCameraPreview extends SurfaceView implements SurfaceHolder.Callba
 
     /**
      * [IMPORTANT!] A SurfaceChanged event means that the parent graphic has changed its layout
-     * (for example when the orientation changes). It's necessary to update the {@link CvCameraPreview}
+     * (for example when the orientation changes). It's necessary to update the {@link CustomCameraPreview}
      * orientation, so the preview is stopped, then updated, then re-activated.
      *
      * @param holder The SurfaceHolder whose surface has changed
@@ -329,7 +331,7 @@ public class CvCameraPreview extends SurfaceView implements SurfaceHolder.Callba
      * where the preview is printed: if its ratio is different from the
      * original one, it results in errors like "startPreview failed".<br />
      * This methods takes care on this and applies the right size to the
-     * {@link CvCameraPreview}.
+     * {@link CustomCameraPreview}.
      *
      * @param widthMeasureSpec  horizontal space requirements as imposed by the parent.
      * @param heightMeasureSpec vertical space requirements as imposed by the parent.
@@ -363,15 +365,16 @@ public class CvCameraPreview extends SurfaceView implements SurfaceHolder.Callba
 
     private boolean connectCamera()
     {
-        /* 1. We need to instantiate camera
-         * 2. We need to start thread which will be getting frames
+        /*
+         1. We need to instantiate camera
+         2. We need to start thread which will be getting frames
          */
-        /* First step - initialize camera connection */
+        // First step - initialize camera connection
         LogHelper.d(TAG, "Connecting to camera");
         if (!initializeCamera())
             return false;
 
-        /* now we can start update thread */
+        // now we can start update thread
         LogHelper.d(TAG, "Starting processing thread");
         stopThread = false;
         thread = new Thread(new CameraWorker());
@@ -382,8 +385,9 @@ public class CvCameraPreview extends SurfaceView implements SurfaceHolder.Callba
 
     private void disconnectCamera()
     {
-        /* 1. We need to stop thread which updating the frames
-         * 2. Stop camera and release it
+        /*
+         1. We need to stop thread which updating the frames
+         2. Stop camera and release it
          */
         LogHelper.d(TAG, "Disconnecting from camera");
         try {
@@ -403,7 +407,7 @@ public class CvCameraPreview extends SurfaceView implements SurfaceHolder.Callba
 
         stopCameraPreview();
 
-        /* Now release camera */
+        // Now release camera
         releaseCamera();
 
         cameraFrameReady = false;
@@ -460,9 +464,8 @@ public class CvCameraPreview extends SurfaceView implements SurfaceHolder.Callba
                     this.cameraId = 0;
                 } catch (RuntimeException e) {
                     // this is REALLY bad, the camera is definitely locked by the system.
-                    LogHelper.e(TAG,
-                            "initializeCamera(): trying to open default camera but it's locked. "
-                                    + "The camera is not available for this app at the moment.", e
+                    LogHelper.e(TAG, "initializeCamera(): trying to open default camera but it's locked. "
+                            + "The camera is not available for this app at the moment.", e
                     );
                     return false;
                 }
@@ -574,8 +577,9 @@ public class CvCameraPreview extends SurfaceView implements SurfaceHolder.Callba
      * preview/picture size to be assigned to the camera, by looking at
      * the list of supported sizes and the maximum value given
      *
-     * @param sizes          sizes that are currently supported by the camera hardware,
-     *                       retrived with {@link Camera.Parameters#getSupportedPictureSizes()} or {@link Camera.Parameters#getSupportedPreviewSizes()}
+     * @param sizes          sizes that are currently supported by the camera hardware, retrieved with
+     *                       {@link Camera.Parameters#getSupportedPictureSizes()} or
+     *                       {@link Camera.Parameters#getSupportedPreviewSizes()}
      * @param widthThreshold the maximum value we want to apply
      * @return an optimal size <= widthThreshold
      */
@@ -780,10 +784,10 @@ public class CvCameraPreview extends SurfaceView implements SurfaceHolder.Callba
         {
             do {
                 boolean hasFrame = false;
-                synchronized (CvCameraPreview.this) {
+                synchronized (CustomCameraPreview.this) {
                     try {
                         while (!cameraFrameReady && !stopThread) {
-                            CvCameraPreview.this.wait();
+                            CustomCameraPreview.this.wait();
                         }
                     } catch (InterruptedException e) {
                         LogHelper.e(TAG, "CameraWorker interrupted", e);
@@ -866,20 +870,20 @@ public class CvCameraPreview extends SurfaceView implements SurfaceHolder.Callba
          * @param width  -  the width of the frames that will be delivered
          * @param height - the height of the frames that will be delivered
          */
-        public void onCameraViewStarted(int width, int height);
+        void onCameraViewStarted(int width, int height);
 
         /**
          * This method is invoked when camera preview has been stopped for some reason.
          * No frames will be delivered via onCameraFrame() callback after this method is called.
          */
-        public void onCameraViewStopped();
+        void onCameraViewStopped();
 
         /**
          * This method is invoked when delivery of the frame needs to be done.
          * The returned values - is a modified frame which needs to be displayed on the screen.
          * TODO: pass the parameters specifying the format of the frame (BPP, YUV or RGB and etc)
          */
-        public Mat onCameraFrame(Mat mat);
+        Mat onCameraFrame(Mat mat);
     }
 
 }
