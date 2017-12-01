@@ -8,4 +8,6 @@ package com.github.teocci.codesample.udpavstreamer.utils;
 public class Config
 {
     public static final String LOG_PREFIX = "[AVStreamer]";
+
+    public static final int AUDIO_SAMPLE_RATE = 44100;
 }

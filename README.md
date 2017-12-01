@@ -22,7 +22,7 @@ mpv udp://x.x.x.x:8090
 
 #### Using ffplay
 ```bash
-ffplay udp://192.168.113:8090
+ffplay udp://x.x.x.x:8090
 ```
 
 ### Pre-requisites

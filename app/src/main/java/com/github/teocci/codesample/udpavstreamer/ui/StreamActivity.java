@@ -16,7 +16,10 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import com.github.teocci.codesample.udpavstreamer.R;
-import com.github.teocci.codesample.udpavstreamer.av.CustomCameraPreview;
+import com.github.teocci.codesample.udpavstreamer.av.AudioRecordRunnable;
+import com.github.teocci.codesample.udpavstreamer.av.CustomCameraView;
+import com.github.teocci.codesample.udpavstreamer.interfaces.AudioDataListener;
+import com.github.teocci.codesample.udpavstreamer.interfaces.CustomCameraViewListener;
 import com.github.teocci.codesample.udpavstreamer.utils.LogHelper;
 
 import org.bytedeco.javacpp.opencv_core.Mat;
@@ -25,6 +28,10 @@ import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.FrameRecorder;
 import org.bytedeco.javacv.OpenCVFrameConverter;
 
+import java.nio.ShortBuffer;
+
+import static com.github.teocci.codesample.udpavstreamer.utils.Config.AUDIO_SAMPLE_RATE;
+import static org.bytedeco.javacpp.avcodec.AV_CODEC_ID_AAC;
 import static org.bytedeco.javacpp.avcodec.AV_CODEC_ID_H264;
 import static org.bytedeco.javacpp.avcodec.AV_CODEC_ID_NONE;
 
@@ -33,19 +40,24 @@ import static org.bytedeco.javacpp.avcodec.AV_CODEC_ID_NONE;
  *
  * @author teocci@yandex.com on 2017-Feb-02
  */
-public class StreamActivity extends Activity implements OnClickListener, CustomCameraPreview.CvCameraViewListener
+public class StreamActivity extends Activity implements OnClickListener, CustomCameraViewListener, AudioDataListener
 {
     private final static String TAG = LogHelper.makeLogTag(StreamActivity.class);
     private final static String CLASS_LABEL = StreamActivity.class.getName();
-    
+
     private PowerManager.WakeLock wakeLock;
     private boolean recording;
-    private CustomCameraPreview cameraView;
+    private CustomCameraView cameraView;
     private Button btnRecorderControl;
     private FFmpegFrameRecorder recorder;
     private long startTime = 0;
     private OpenCVFrameConverter.ToMat converterToMat = new OpenCVFrameConverter.ToMat();
     private final Object semaphore = new Object();
+
+    // Audio data getting thread
+    private AudioRecordRunnable audioRecordRunnable;
+    private Thread audioThread;
+    volatile boolean runAudioThread = true;
 
     @Override
     public void onCreate(Bundle savedInstanceState)
@@ -57,7 +69,7 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
 
         setContentView(R.layout.activity_record);
 
-        cameraView = (CustomCameraPreview) findViewById(R.id.camera_view);
+        cameraView = (CustomCameraView) findViewById(R.id.camera_view);
 
         initPartialWakeLock();
 
@@ -232,7 +244,7 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
 //        LogHelper.i(TAG, "saved file path: " + savePath.getAbsolutePath());
 
         String streamURL = "udp://192.168.1.125:8090";
-        recorder = new FFmpegFrameRecorder(streamURL, frameWidth, frameHeight, 0);
+        recorder = new FFmpegFrameRecorder(streamURL, frameWidth, frameHeight, 1);
         recorder.setInterleaved(false);
         // video options //
         recorder.setFormat("mpegts");
@@ -242,8 +254,9 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
 //        recorder.setVideoOption("crf", "25");
         recorder.setVideoBitrate(5 * 1024 * 1024);
         recorder.setFrameRate(30);
+        recorder.setSampleRate(AUDIO_SAMPLE_RATE);
         recorder.setVideoCodec(AV_CODEC_ID_H264);
-        recorder.setAudioCodec(AV_CODEC_ID_NONE);
+        recorder.setAudioCodec(AV_CODEC_ID_AAC);
 
 
 //        recorder.setFormat("rtp");
@@ -259,6 +272,10 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
 //        recorder.setVideoQuality(1);
 //        // Set in the surface changed method
 //        recorder.setFrameRate(16);
+
+        audioRecordRunnable = new AudioRecordRunnable(this);
+        audioThread = new Thread(audioRecordRunnable);
+        runAudioThread = true;
 
         LogHelper.i(TAG, "recorder initialize success");
     }
@@ -311,6 +328,7 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
         try {
             synchronized (semaphore) {
                 recorder.start();
+                audioThread.start();
             }
             startTime = System.currentTimeMillis();
             recording = true;
@@ -320,11 +338,26 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
                 LogHelper.e(TAG, "Recorder is null");
                 recording = false;
             }
+            if (audioThread == null) {
+                LogHelper.e(TAG, "AudioThread is null");
+                recording = false;
+            }
         }
     }
 
     public void stopRecording()
     {
+        runAudioThread = false;
+        try {
+            audioThread.join();
+        } catch (InterruptedException e) {
+            // reset interrupt to be nice
+            Thread.currentThread().interrupt();
+            return;
+        }
+        audioRecordRunnable = null;
+        audioThread = null;
+
         if (recorder != null && recording) {
             recording = false;
             LogHelper.i(TAG, "Finishing recording, calling stop and release on recorder");
@@ -337,6 +370,19 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
                 e.printStackTrace();
             }
             recorder = null;
+        }
+    }
+
+    @Override
+    public void onSampleReady(ShortBuffer audioData)
+    {
+        if (recorder == null) return;
+        try {
+            LogHelper.e(TAG, "audioData: " + audioData);
+            recorder.recordSamples(audioData);
+        } catch (FFmpegFrameRecorder.Exception e) {
+            LogHelper.v(TAG, e.getMessage());
+            e.printStackTrace();
         }
     }
 }

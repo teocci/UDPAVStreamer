@@ -17,7 +17,8 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import com.github.teocci.codesample.udpavstreamer.R;
-import com.github.teocci.codesample.udpavstreamer.av.CustomCameraPreview;
+import com.github.teocci.codesample.udpavstreamer.av.CustomCameraView;
+import com.github.teocci.codesample.udpavstreamer.interfaces.CustomCameraViewListener;
 import com.github.teocci.codesample.udpavstreamer.utils.LogHelper;
 
 import org.bytedeco.javacpp.opencv_core.Mat;
@@ -35,14 +36,14 @@ import static org.bytedeco.javacpp.avcodec.AV_CODEC_ID_MPEG4;
  *
  * @author teocci@yandex.com on 2017-Feb-02
  */
-public class RecordActivity extends Activity implements OnClickListener, CustomCameraPreview.CvCameraViewListener
+public class RecordActivity extends Activity implements OnClickListener, CustomCameraViewListener
 {
     private final static String TAG = LogHelper.makeLogTag(RecordActivity.class);
     private final static String CLASS_LABEL = RecordActivity.class.getName();
 
     private PowerManager.WakeLock wakeLock;
     private boolean recording;
-    private CustomCameraPreview cameraView;
+    private CustomCameraView cameraView;
     private Button btnRecorderControl;
     private File savePath = new File(Environment.getExternalStorageDirectory(), "stream.mp4");
     private FFmpegFrameRecorder recorder;
@@ -60,7 +61,7 @@ public class RecordActivity extends Activity implements OnClickListener, CustomC
 
         setContentView(R.layout.activity_record);
 
-        cameraView = (CustomCameraPreview) findViewById(R.id.camera_view);
+        cameraView = (CustomCameraView) findViewById(R.id.camera_view);
 
         initPartialWakeLock();
 

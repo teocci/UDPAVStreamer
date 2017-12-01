@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <declare-styleable name="CustomCameraPreview">
+    <declare-styleable name="CustomCameraView">
 
         <attr name="camera_type" format="integer">
             <enum name="back" value="99" />

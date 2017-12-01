@@ -21,6 +21,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
 import com.github.teocci.codesample.udpavstreamer.R;
+import com.github.teocci.codesample.udpavstreamer.interfaces.CustomCameraViewListener;
 import com.github.teocci.codesample.udpavstreamer.utils.LogHelper;
 
 import org.bytedeco.javacpp.opencv_core.Mat;
@@ -46,9 +47,9 @@ import static org.bytedeco.javacpp.avutil.AV_PIX_FMT_NV21;
  *
  * @author teocci@yandex.com on 2017-Feb-02
  */
-public class CustomCameraPreview extends SurfaceView implements SurfaceHolder.Callback, PreviewCallback
+public class CustomCameraView extends SurfaceView implements SurfaceHolder.Callback, PreviewCallback
 {
-    private final static String TAG = LogHelper.makeLogTag(CustomCameraPreview.class);
+    private final static String TAG = LogHelper.makeLogTag(CustomCameraView.class);
 
     private static final int STOPPED = 0;
     private static final int STARTED = 1;
@@ -74,7 +75,7 @@ public class CustomCameraPreview extends SurfaceView implements SurfaceHolder.Ca
      * by the Camera object. Note that this should not be intended as
      * the final, exact, dimension because the device could not support
      * it and a lower value is required (but the aspect ratio should remain the same).<br />
-     * See {@link CustomCameraPreview#getBestSize(List, int)} for more information.
+     * See {@link CustomCameraView#getBestSize(List, int)} for more information.
      */
     private final int PREVIEW_MAX_WIDTH = 640;
 
@@ -107,7 +108,7 @@ public class CustomCameraPreview extends SurfaceView implements SurfaceHolder.Ca
     protected boolean enabled = true;
     private boolean surfaceExist;
     private Thread thread;
-    private CvCameraViewListener listener;
+    private CustomCameraViewListener listener;
     private AndroidFrameConverter converterToBitmap = new AndroidFrameConverter();
     private OpenCVFrameConverter.ToMat converterToMat = new OpenCVFrameConverter.ToMat();
     private Bitmap cacheBitmap;
@@ -121,19 +122,19 @@ public class CustomCameraPreview extends SurfaceView implements SurfaceHolder.Ca
     private int frameWidth, frameHeight;
     private int scaleType = SCALE_FIT;
 
-    public CustomCameraPreview(Context context, AttributeSet attrs)
+    public CustomCameraView(Context context, AttributeSet attrs)
     {
         super(context, attrs);
 
-        TypedArray array = getContext().obtainStyledAttributes(attrs, R.styleable.CustomCameraPreview);
-        int camType = array.getInt(R.styleable.CustomCameraPreview_camera_type, CAMERA_BACK);
-        int scaleType = array.getInt(R.styleable.CustomCameraPreview_scale_type, SCALE_FIT);
+        TypedArray array = getContext().obtainStyledAttributes(attrs, R.styleable.CustomCameraView);
+        int camType = array.getInt(R.styleable.CustomCameraView_camera_type, CAMERA_BACK);
+        int scaleType = array.getInt(R.styleable.CustomCameraView_scale_type, SCALE_FIT);
         array.recycle();
 
         initializer(camType == CAMERA_BACK ? Camera.CameraInfo.CAMERA_FACING_BACK : Camera.CameraInfo.CAMERA_FACING_FRONT, scaleType);
     }
 
-    public CustomCameraPreview(Context context, int camType, int scaleType)
+    public CustomCameraView(Context context, int camType, int scaleType)
     {
         super(context);
 
@@ -155,7 +156,7 @@ public class CustomCameraPreview extends SurfaceView implements SurfaceHolder.Ca
         }
     }
 
-    public void setCvCameraViewListener(CvCameraViewListener listener)
+    public void setCvCameraViewListener(CustomCameraViewListener listener)
     {
         this.listener = listener;
     }
@@ -179,7 +180,7 @@ public class CustomCameraPreview extends SurfaceView implements SurfaceHolder.Ca
 
     /**
      * [IMPORTANT!] A SurfaceChanged event means that the parent graphic has changed its layout
-     * (for example when the orientation changes). It's necessary to update the {@link CustomCameraPreview}
+     * (for example when the orientation changes). It's necessary to update the {@link CustomCameraView}
      * orientation, so the preview is stopped, then updated, then re-activated.
      *
      * @param holder The SurfaceHolder whose surface has changed
@@ -331,7 +332,7 @@ public class CustomCameraPreview extends SurfaceView implements SurfaceHolder.Ca
      * where the preview is printed: if its ratio is different from the
      * original one, it results in errors like "startPreview failed".<br />
      * This methods takes care on this and applies the right size to the
-     * {@link CustomCameraPreview}.
+     * {@link CustomCameraView}.
      *
      * @param widthMeasureSpec  horizontal space requirements as imposed by the parent.
      * @param heightMeasureSpec vertical space requirements as imposed by the parent.
@@ -425,7 +426,6 @@ public class CustomCameraPreview extends SurfaceView implements SurfaceHolder.Ca
             // warning here! starting from API 9, we can retrieve one from the multiple
             // hardware cameras (ex. front/back)
             if (Build.VERSION.SDK_INT >= 9) {
-
                 if (this.cameraId < 0) {
                     // at this point, it's the first time we request for a camera
                     Camera.CameraInfo camInfo = new Camera.CameraInfo();
@@ -475,7 +475,6 @@ public class CustomCameraPreview extends SurfaceView implements SurfaceHolder.Ca
             LogHelper.i(TAG, "initializeCamera(): successfully set camera #" + this.cameraId);
 
             setupCamera();
-
             updateCameraDisplayOrientation();
 
             initFilter(frameWidth, frameHeight);
@@ -500,48 +499,47 @@ public class CustomCameraPreview extends SurfaceView implements SurfaceHolder.Ca
         try {
             Camera.Parameters parameters = cameraDevice.getParameters();
             List<Size> sizes = parameters.getSupportedPreviewSizes();
-            if (sizes != null) {
-                Size bestPreviewSize = getBestSize(sizes, PREVIEW_MAX_WIDTH);
+            if (sizes == null) return false;
 
-                frameWidth = bestPreviewSize.width;
-                frameHeight = bestPreviewSize.height;
+            Size bestPreviewSize = getBestSize(sizes, PREVIEW_MAX_WIDTH);
 
-                parameters.setPreviewSize(bestPreviewSize.width, bestPreviewSize.height);
+            frameWidth = bestPreviewSize.width;
+            frameHeight = bestPreviewSize.height;
 
-                parameters.setPreviewFormat(ImageFormat.NV21); // NV21 is the most supported format for preview frames
+            parameters.setPreviewSize(bestPreviewSize.width, bestPreviewSize.height);
 
-                List<String> FocusModes = parameters.getSupportedFocusModes();
-                if (FocusModes != null && FocusModes.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO)) {
-                    parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
-                }
+            parameters.setPreviewFormat(ImageFormat.NV21); // NV21 is the most supported format for preview frames
 
-                cameraDevice.setParameters(parameters); // save everything
-
-                // print saved parameters
-                int prevWidth = cameraDevice.getParameters().getPreviewSize().width;
-                int prevHeight = cameraDevice.getParameters().getPreviewSize().height;
-                int picWidth = cameraDevice.getParameters().getPictureSize().width;
-                int picHeight = cameraDevice.getParameters().getPictureSize().height;
-
-                LogHelper.d(TAG, "setupCamera(): settings applied:\n\t"
-                        + "preview size: " + prevWidth + "x" + prevHeight + "\n\t"
-                        + "picture size: " + picWidth + "x" + picHeight
-                );
-
-                // here: previewBuffer initialization. It will host every frame that comes out
-                // from the preview, so it must be big enough.
-                // After that, it's linked to the camera with the setCameraCallback() method.
-                try {
-                    this.previewBuffer = new byte[prevWidth * prevHeight * ImageFormat.getBitsPerPixel(cameraDevice.getParameters().getPreviewFormat()) / 8];
-                    setCameraCallback();
-                } catch (IOException e) {
-                    LogHelper.e(TAG, "setupCamera(): error setting camera callback.", e);
-                }
-
-                return true;
-            } else {
-                return false;
+            List<String> FocusModes = parameters.getSupportedFocusModes();
+            if (FocusModes != null && FocusModes.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO)) {
+                parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
             }
+
+            cameraDevice.setParameters(parameters); // save everything
+            Size previewSize = cameraDevice.getParameters().getPreviewSize();
+            // print saved parameters
+            int prevWidth = previewSize.width;
+            int prevHeight = previewSize.height;
+            int picWidth = previewSize.width;
+            int picHeight = previewSize.height;
+
+            LogHelper.d(TAG, "setupCamera(): settings applied:\n\t"
+                    + "preview size: " + prevWidth + "x" + prevHeight + "\n\t"
+                    + "picture size: " + picWidth + "x" + picHeight
+            );
+
+            // here: previewBuffer initialization. It will host every frame that comes out
+            // from the preview, so it must be big enough.
+            // After that, it's linked to the camera with the setCameraCallback() method.
+            try {
+                int bitsPerPixel = ImageFormat.getBitsPerPixel(cameraDevice.getParameters().getPreviewFormat());
+                this.previewBuffer = new byte[prevWidth * prevHeight * bitsPerPixel / 8];
+                setCameraCallback();
+            } catch (IOException e) {
+                LogHelper.e(TAG, "setupCamera(): error setting camera callback.", e);
+            }
+
+            return true;
         } catch (Exception e) {
             e.printStackTrace();
             return false;
@@ -784,10 +782,10 @@ public class CustomCameraPreview extends SurfaceView implements SurfaceHolder.Ca
         {
             do {
                 boolean hasFrame = false;
-                synchronized (CustomCameraPreview.this) {
+                synchronized (CustomCameraView.this) {
                     try {
                         while (!cameraFrameReady && !stopThread) {
-                            CustomCameraPreview.this.wait();
+                            CustomCameraView.this.wait();
                         }
                     } catch (InterruptedException e) {
                         LogHelper.e(TAG, "CameraWorker interrupted", e);
@@ -860,30 +858,4 @@ public class CustomCameraPreview extends SurfaceView implements SurfaceHolder.Ca
             processedMat.release();
         }
     }
-
-    public interface CvCameraViewListener
-    {
-        /**
-         * This method is invoked when camera preview has started. After this method is invoked
-         * the frames will start to be delivered to client via the onCameraFrame() callback.
-         *
-         * @param width  -  the width of the frames that will be delivered
-         * @param height - the height of the frames that will be delivered
-         */
-        void onCameraViewStarted(int width, int height);
-
-        /**
-         * This method is invoked when camera preview has been stopped for some reason.
-         * No frames will be delivered via onCameraFrame() callback after this method is called.
-         */
-        void onCameraViewStopped();
-
-        /**
-         * This method is invoked when delivery of the frame needs to be done.
-         * The returned values - is a modified frame which needs to be displayed on the screen.
-         * TODO: pass the parameters specifying the format of the frame (BPP, YUV or RGB and etc)
-         */
-        Mat onCameraFrame(Mat mat);
-    }
-
 }
