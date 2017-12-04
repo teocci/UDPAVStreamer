@@ -186,6 +186,20 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
         return mat;
     }
 
+    @Override
+    public void onSampleReady(ShortBuffer audioData)
+    {
+        if (recorder == null) return;
+        if (recording && audioData == null) return;
+        try {
+            LogHelper.e(TAG, "audioData: " + audioData);
+            recorder.recordSamples(audioData);
+        } catch (FFmpegFrameRecorder.Exception e) {
+            LogHelper.v(TAG, e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     private void initPartialWakeLock()
     {
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
@@ -370,19 +384,6 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
                 e.printStackTrace();
             }
             recorder = null;
-        }
-    }
-
-    @Override
-    public void onSampleReady(ShortBuffer audioData)
-    {
-        if (recorder == null) return;
-        try {
-            LogHelper.e(TAG, "audioData: " + audioData);
-            recorder.recordSamples(audioData);
-        } catch (FFmpegFrameRecorder.Exception e) {
-            LogHelper.v(TAG, e.getMessage());
-            e.printStackTrace();
         }
     }
 }

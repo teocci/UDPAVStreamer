@@ -64,7 +64,7 @@ public class AudioRecordRunnable implements Runnable
             audioData.limit(bufferReadResult);
             if (bufferReadResult > 0) {
 //                LogHelper.e(TAG, "bufferReadResult: " + bufferReadResult);
-                if (audioDataListener == null) {
+                if (audioDataListener != null) {
                     audioDataListener.onSampleReady(audioData);
                 }
             }
