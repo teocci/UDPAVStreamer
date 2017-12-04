@@ -168,6 +168,10 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
     @Override
     public Mat onCameraFrame(Mat mat)
     {
+        if (audioRecordRunnable == null) {
+            startTime = System.currentTimeMillis();
+            return mat;
+        }
         if (recording && mat != null) {
             synchronized (semaphore) {
                 try {
@@ -191,7 +195,12 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
     {
         if (recorder == null) return;
         if (recording && audioData == null) return;
+
         try {
+            long t = 1000 * (System.currentTimeMillis() - startTime);
+            if (t > recorder.getTimestamp()) {
+                recorder.setTimestamp(t);
+            }
             LogHelper.e(TAG, "audioData: " + audioData);
             recorder.recordSamples(audioData);
         } catch (FFmpegFrameRecorder.Exception e) {
@@ -344,7 +353,6 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
                 recorder.start();
                 audioThread.start();
             }
-            startTime = System.currentTimeMillis();
             recording = true;
         } catch (FFmpegFrameRecorder.Exception e) {
             e.printStackTrace();
@@ -361,14 +369,13 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
 
     public void stopRecording()
     {
-        runAudioThread = false;
-        try {
-            audioThread.join();
-        } catch (InterruptedException e) {
-            // reset interrupt to be nice
-            Thread.currentThread().interrupt();
-            return;
+        if (audioThread == null) return;
+
+        if (audioThread.isAlive()) {
+            audioThread.interrupt();
         }
+
+        runAudioThread = false;
         audioRecordRunnable = null;
         audioThread = null;
 

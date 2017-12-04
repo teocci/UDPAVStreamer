@@ -11,6 +11,8 @@ import java.nio.ShortBuffer;
 
 import static android.os.Process.THREAD_PRIORITY_URGENT_AUDIO;
 import static com.github.teocci.codesample.udpavstreamer.utils.Config.AUDIO_SAMPLE_RATE;
+import static com.github.teocci.codesample.udpavstreamer.utils.Config.BUF_SIZE;
+import static com.github.teocci.codesample.udpavstreamer.utils.Config.SAMPLE_INTERVAL;
 
 /**
  * Created by teocci.
@@ -53,10 +55,13 @@ public class AudioRecordRunnable implements Runnable
                 bufferSize
         );
 
+//        audioData = ShortBuffer.allocate(BUF_SIZE);
         audioData = ShortBuffer.allocate(bufferSize);
 
-        LogHelper.e(TAG, "audioRecord.startRecording()");
+
+//        try {
         audioRecord.startRecording();
+        LogHelper.e(TAG, "audioRecord.startRecording()");
 
         // ffmpeg_audio encoding loop
         while (!Thread.interrupted()) {
@@ -68,6 +73,7 @@ public class AudioRecordRunnable implements Runnable
                     audioDataListener.onSampleReady(audioData);
                 }
             }
+//                Thread.sleep(SAMPLE_INTERVAL, 0);
         }
 
         LogHelper.v(TAG, "AudioThread Finished, release audioRecord");
@@ -80,5 +86,13 @@ public class AudioRecordRunnable implements Runnable
 
             LogHelper.v(TAG, "audioRecord released");
         }
+//        } catch (InterruptedException e) {
+//            LogHelper.v(TAG, "InterruptedException: " + e.toString());
+//        }
+    }
+
+    public AudioRecord getAudioRecoder()
+    {
+        return audioRecord;
     }
 }
