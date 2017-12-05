@@ -211,11 +211,6 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
 
     private void initPartialWakeLock()
     {
-        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        if (pm != null) {
-            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, CLASS_LABEL);
-            wakeLock.acquire();
-        }
     }
 
     private void initLayout()

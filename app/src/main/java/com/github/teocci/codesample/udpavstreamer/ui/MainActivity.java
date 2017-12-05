@@ -39,6 +39,30 @@ public class MainActivity extends AppCompatActivity
         initEventHandlers();
     }
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults)
+    {
+        Map<String, Integer> perm = new HashMap<>();
+        perm.put(CAMERA, PERMISSION_DENIED);
+        perm.put(WRITE_EXTERNAL_STORAGE, PERMISSION_DENIED);
+        for (int i = 0; i < permissions.length; i++) {
+            perm.put(permissions[i], grantResults[i]);
+        }
+        if (perm.get(CAMERA) == PERMISSION_GRANTED
+                && perm.get(WRITE_EXTERNAL_STORAGE) == PERMISSION_GRANTED) {
+            permissionReady = true;
+        } else {
+            if (!ActivityCompat.shouldShowRequestPermissionRationale(this, CAMERA)
+                    || !ActivityCompat.shouldShowRequestPermissionRationale(this, WRITE_EXTERNAL_STORAGE)) {
+                new AlertDialog.Builder(this)
+                        .setMessage(R.string.permission_warning)
+                        .setPositiveButton(R.string.dismiss, null)
+                        .show();
+            }
+        }
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
+
     private void initPermissions()
     {
         int cameraPermission = ContextCompat.checkSelfPermission(this, CAMERA);
@@ -87,28 +111,5 @@ public class MainActivity extends AppCompatActivity
     private void requirePermissions()
     {
         ActivityCompat.requestPermissions(this, new String[]{CAMERA, WRITE_EXTERNAL_STORAGE}, 11);
-    }
-
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults)
-    {
-        Map<String, Integer> perm = new HashMap<>();
-        perm.put(CAMERA, PERMISSION_DENIED);
-        perm.put(WRITE_EXTERNAL_STORAGE, PERMISSION_DENIED);
-        for (int i = 0; i < permissions.length; i++) {
-            perm.put(permissions[i], grantResults[i]);
-        }
-        if (perm.get(CAMERA) == PERMISSION_GRANTED
-                && perm.get(WRITE_EXTERNAL_STORAGE) == PERMISSION_GRANTED) {
-            permissionReady = true;
-        } else {
-            if (!ActivityCompat.shouldShowRequestPermissionRationale(this, CAMERA)
-                    || !ActivityCompat.shouldShowRequestPermissionRationale(this, WRITE_EXTERNAL_STORAGE)) {
-                new AlertDialog.Builder(this)
-                        .setMessage(R.string.permission_warning)
-                        .setPositiveButton(R.string.dismiss, null)
-                        .show();
-            }
-        }
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 }
