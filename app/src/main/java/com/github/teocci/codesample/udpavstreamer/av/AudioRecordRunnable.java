@@ -58,8 +58,6 @@ public class AudioRecordRunnable implements Runnable
 //        audioData = ShortBuffer.allocate(BUF_SIZE);
         audioData = ShortBuffer.allocate(bufferSize);
 
-
-//        try {
         audioRecord.startRecording();
         LogHelper.e(TAG, "audioRecord.startRecording()");
 
@@ -73,12 +71,11 @@ public class AudioRecordRunnable implements Runnable
                     audioDataListener.onSampleReady(audioData);
                 }
             }
-//                Thread.sleep(SAMPLE_INTERVAL, 0);
         }
 
         LogHelper.v(TAG, "AudioThread Finished, release audioRecord");
 
-            /* encoding finish, release recorder */
+        // Encoding finish, release recorder
         if (audioRecord != null) {
             audioRecord.stop();
             audioRecord.release();
@@ -86,9 +83,6 @@ public class AudioRecordRunnable implements Runnable
 
             LogHelper.v(TAG, "audioRecord released");
         }
-//        } catch (InterruptedException e) {
-//            LogHelper.v(TAG, "InterruptedException: " + e.toString());
-//        }
     }
 
     public AudioRecord getAudioRecoder()

@@ -77,7 +77,7 @@ public class CustomCameraView extends SurfaceView implements SurfaceHolder.Callb
      * it and a lower value is required (but the aspect ratio should remain the same).<br />
      * See {@link CustomCameraView#getBestSize(List, int)} for more information.
      */
-    private final int PREVIEW_MAX_WIDTH = 640;
+    private final int PREVIEW_MAX_WIDTH = 960;
 
     /**
      * The maximum dimension (in pixels) of the images produced when a
@@ -141,31 +141,6 @@ public class CustomCameraView extends SurfaceView implements SurfaceHolder.Callb
         initializer(camType == CAMERA_BACK ? Camera.CameraInfo.CAMERA_FACING_BACK : Camera.CameraInfo.CAMERA_FACING_FRONT, scaleType);
     }
 
-    private void initializer(int camType, int scaleType)
-    {
-
-        this.surfaceHolder = this.getHolder();
-        this.surfaceHolder.addCallback(this);
-
-        this.scaleType = scaleType;
-        this.cameraType = camType;
-
-        // deprecated setting, but required on Android versions prior to API 11
-        if (Build.VERSION.SDK_INT < 11) {
-            this.surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-        }
-    }
-
-    public void setCvCameraViewListener(CustomCameraViewListener listener)
-    {
-        this.listener = listener;
-    }
-
-    public int getCameraId()
-    {
-        return cameraId;
-    }
-
     /**
      * Called when the surface is created for the first time. It sets all the
      * required {@link #cameraDevice}'s parameters and starts the preview stream.
@@ -208,109 +183,6 @@ public class CustomCameraView extends SurfaceView implements SurfaceHolder.Callb
                 /* Now use new surface. Say we have it now */
                 surfaceExist = true;
                 checkCurrentState();
-            }
-        }
-    }
-
-    /**
-     * Called when syncObject lock is held
-     */
-    private void checkCurrentState()
-    {
-        LogHelper.d(TAG, "call checkCurrentState");
-        int targetState;
-
-        if (enabled && surfaceExist && getVisibility() == VISIBLE) {
-            targetState = STARTED;
-        } else {
-            targetState = STOPPED;
-        }
-
-        if (targetState != state) {
-            /* The state change detected. Need to exit the current state and enter target state */
-            processExitState(state);
-            state = targetState;
-            processEnterState(state);
-        }
-    }
-
-    private void processExitState(int state)
-    {
-        LogHelper.d(TAG, "call processExitState: " + state);
-        switch (state) {
-            case STARTED:
-                onExitStartedState();
-                break;
-            case STOPPED:
-                onExitStoppedState();
-                break;
-        }
-        ;
-    }
-
-    private void processEnterState(int state)
-    {
-        LogHelper.d(TAG, "call processEnterState: " + state);
-        switch (state) {
-            case STARTED:
-                onEnterStartedState();
-                if (listener != null) {
-                    listener.onCameraViewStarted(frameWidth, frameHeight);
-                }
-                break;
-            case STOPPED:
-                onEnterStoppedState();
-                if (listener != null) {
-                    listener.onCameraViewStopped();
-                }
-                break;
-        }
-    }
-
-    private void onEnterStoppedState()
-    {
-        /* nothing to do */
-    }
-
-    private void onExitStoppedState()
-    {
-        /* nothing to do */
-    }
-
-    // NOTE: The order of bitmap constructor and camera connection is important for android 4.1.x
-    // Bitmap must be constructed before surface
-    private void onEnterStartedState()
-    {
-        LogHelper.d(TAG, "call onEnterStartedState");
-        /* Connect camera */
-        if (!connectCamera()) {
-            AlertDialog ad = new AlertDialog.Builder(getContext()).create();
-            ad.setCancelable(false); // This blocks the 'BACK' button
-            ad.setMessage("It seems that you device does not support camera (or it is locked). Application will be closed.");
-            ad.setButton(DialogInterface.BUTTON_NEUTRAL, "OK", new DialogInterface.OnClickListener()
-            {
-                public void onClick(DialogInterface dialog, int which)
-                {
-                    dialog.dismiss();
-                    ((Activity) getContext()).finish();
-                }
-            });
-            ad.show();
-
-        }
-    }
-
-    private void onExitStartedState()
-    {
-        disconnectCamera();
-        if (cacheBitmap != null) {
-            cacheBitmap.recycle();
-        }
-        if (filter != null) {
-            try {
-                filter.release();
-            } catch (FrameFilter.Exception e) {
-                e.printStackTrace();
             }
         }
     }
@@ -364,16 +236,153 @@ public class CustomCameraView extends SurfaceView implements SurfaceHolder.Callb
         LogHelper.i(TAG, "onMeasure(): set surface dimension to " + width + "x" + height);
     }
 
+    @Override
+    public void onPreviewFrame(byte[] raw, Camera cam)
+    {
+        processFrame(previewBuffer, cam);
+        // [IMPORTANT!] remember to reset the CallbackBuffer at the end of every onPreviewFrame event.
+        // Seems weird, but it works
+        cam.addCallbackBuffer(previewBuffer);
+    }
+
+    private void initializer(int camType, int scaleType)
+    {
+        this.surfaceHolder = this.getHolder();
+        this.surfaceHolder.addCallback(this);
+
+        this.scaleType = scaleType;
+        this.cameraType = camType;
+
+        // deprecated setting, but required on Android versions prior to API 11
+        if (Build.VERSION.SDK_INT < 11) {
+            this.surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+        }
+    }
+
+    public void setCvCameraViewListener(CustomCameraViewListener listener)
+    {
+        this.listener = listener;
+    }
+
+    public int getCameraId()
+    {
+        return cameraId;
+    }
+
+    /**
+     * Called when syncObject lock is held
+     */
+    private void checkCurrentState()
+    {
+        LogHelper.d(TAG, "call checkCurrentState");
+        int targetState;
+
+        if (enabled && surfaceExist && getVisibility() == VISIBLE) {
+            targetState = STARTED;
+        } else {
+            targetState = STOPPED;
+        }
+
+        if (targetState != state) {
+            /* The state change detected. Need to exit the current state and enter target state */
+            processExitState(state);
+            state = targetState;
+            processEnterState(state);
+        }
+    }
+
+    private void processExitState(int state)
+    {
+        LogHelper.d(TAG, "call processExitState: " + state);
+        switch (state) {
+            case STARTED:
+                onExitStartedState();
+                break;
+            case STOPPED:
+                onExitStoppedState();
+                break;
+        }
+    }
+
+    private void processEnterState(int state)
+    {
+        LogHelper.d(TAG, "call processEnterState: " + state);
+        switch (state) {
+            case STARTED:
+                onEnterStartedState();
+                if (listener != null) {
+                    listener.onCameraViewStarted(frameWidth, frameHeight);
+                }
+                break;
+            case STOPPED:
+                onEnterStoppedState();
+                if (listener != null) {
+                    listener.onCameraViewStopped();
+                }
+                break;
+        }
+    }
+
+    private void onEnterStoppedState()
+    {
+        /* nothing to do */
+    }
+
+    private void onExitStoppedState()
+    {
+        /* nothing to do */
+    }
+
+    // NOTE: The order of bitmap constructor and camera connection is important for android 4.1.x
+    // Bitmap must be constructed before surface
+    private void onEnterStartedState()
+    {
+        LogHelper.d(TAG, "call onEnterStartedState");
+        /* Connect camera */
+        if (!connectCamera()) {
+            AlertDialog ad = new AlertDialog.Builder(getContext()).create();
+            ad.setCancelable(false); // This blocks the 'BACK' button
+            ad.setMessage("It seems that you device does not support camera (or it is locked). Application will be closed.");
+            ad.setButton(
+                    DialogInterface.BUTTON_NEUTRAL,
+                    "OK",
+                    new DialogInterface.OnClickListener()
+                    {
+                        public void onClick(DialogInterface dialog, int which)
+                        {
+                            dialog.dismiss();
+                            ((Activity) getContext()).finish();
+                        }
+                    }
+            );
+            ad.show();
+
+        }
+    }
+
+    private void onExitStartedState()
+    {
+        disconnectCamera();
+        if (cacheBitmap != null) {
+            cacheBitmap.recycle();
+        }
+        if (filter != null) {
+            try {
+                filter.release();
+            } catch (FrameFilter.Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     private boolean connectCamera()
     {
-        /*
-         1. We need to instantiate camera
-         2. We need to start thread which will be getting frames
-         */
+        // 1. We need to instantiate camera
+        // 2. We need to start thread which will be getting frames
+
         // First step - initialize camera connection
         LogHelper.d(TAG, "Connecting to camera");
-        if (!initializeCamera())
-            return false;
+        if (!initializeCamera()) return false;
 
         // now we can start update thread
         LogHelper.d(TAG, "Starting processing thread");
@@ -386,10 +395,8 @@ public class CustomCameraView extends SurfaceView implements SurfaceHolder.Callb
 
     private void disconnectCamera()
     {
-        /*
-         1. We need to stop thread which updating the frames
-         2. Stop camera and release it
-         */
+        // 1. We need to stop thread which updating the frames
+        // 2. Stop camera and release it
         LogHelper.d(TAG, "Disconnecting from camera");
         try {
             stopThread = true;
@@ -507,7 +514,6 @@ public class CustomCameraView extends SurfaceView implements SurfaceHolder.Callb
             frameHeight = bestPreviewSize.height;
 
             parameters.setPreviewSize(bestPreviewSize.width, bestPreviewSize.height);
-
             parameters.setPreviewFormat(ImageFormat.NV21); // NV21 is the most supported format for preview frames
 
             List<String> FocusModes = parameters.getSupportedFocusModes();
@@ -616,10 +622,10 @@ public class CustomCameraView extends SurfaceView implements SurfaceHolder.Callb
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
                 surfaceTexture = new SurfaceTexture(MAGIC_TEXTURE_ID);
                 cameraDevice.setPreviewTexture(surfaceTexture);
-            } else
+            } else {
                 cameraDevice.setPreviewDisplay(holder);
+            }
             cameraDevice.startPreview();
-//            filter.start();
         } catch (Exception e) {
             LogHelper.e(TAG, "startCameraPreview(): error starting camera preview", e);
         }
@@ -634,7 +640,6 @@ public class CustomCameraView extends SurfaceView implements SurfaceHolder.Callb
         try {
             cameraDevice.stopPreview();
             cameraDevice.setPreviewCallback(null);
-//            filter.stop();
         } catch (Exception e) {
             // ignored: tried to stop a non-existent preview
             LogHelper.i(TAG, "stopCameraPreview(): tried to stop a non-running preview, this is not an error");
@@ -659,7 +664,7 @@ public class CustomCameraView extends SurfaceView implements SurfaceHolder.Callb
 
     private int getRotationDegree()
     {
-        int result = 0;
+        int result;
         Activity parentActivity = (Activity) this.getContext();
 
         int rotation = parentActivity.getWindowManager().getDefaultDisplay().getRotation();
@@ -707,16 +712,14 @@ public class CustomCameraView extends SurfaceView implements SurfaceHolder.Callb
         Camera.CameraInfo info = new Camera.CameraInfo();
         Camera.getCameraInfo(cameraId, info);
         boolean isFrontFaceCamera = info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT;
-        LogHelper.i(TAG, "init filter with width = " + width + " and height = " + height + " and degree = "
-                + degree + " and isFrontFaceCamera = " + isFrontFaceCamera);
+        LogHelper.i(TAG, "init filter with width = " + width + " and height = " + height +
+                " and degree = " + degree + " and isFrontFaceCamera = " + isFrontFaceCamera);
         String transposeCode;
         String formatCode = "format=pix_fmts=rgba";
-        /*
-         0 = 90CounterCLockwise and Vertical Flip (default)
-         1 = 90Clockwise
-         2 = 90CounterClockwise
-         3 = 90Clockwise and Vertical Flip
-         */
+        // 0 = 90CounterCLockwise and Vertical Flip (default)
+        // 1 = 90Clockwise
+        // 2 = 90CounterClockwise
+        // 3 = 90Clockwise and Vertical Flip
         switch (degree) {
             case 0:
                 transposeCode = isFrontFaceCamera ? "transpose=3,transpose=2" : "transpose=1,transpose=2";
@@ -744,15 +747,6 @@ public class CustomCameraView extends SurfaceView implements SurfaceHolder.Callb
         filter.setPixelFormat(AV_PIX_FMT_NV21);
 
         LogHelper.i(TAG, "filter initialize success");
-    }
-
-    @Override
-    public void onPreviewFrame(byte[] raw, Camera cam)
-    {
-        processFrame(previewBuffer, cam);
-        // [IMPORTANT!] remember to reset the CallbackBuffer at the end of every onPreviewFrame event.
-        // Seems weird, but it works
-        cam.addCallbackBuffer(previewBuffer);
     }
 
     /**
@@ -838,18 +832,19 @@ public class CustomCameraView extends SurfaceView implements SurfaceHolder.Callb
         }
         cacheBitmap = converterToBitmap.convert(frame);
         if (cacheBitmap != null) {
-            int width, height;
+            int width, height, rangeHeight;
             Canvas canvas = getHolder().lockCanvas();
             if (canvas != null) {
                 width = canvas.getWidth();
                 height = cacheBitmap.getHeight() * canvas.getWidth() / cacheBitmap.getWidth();
+                rangeHeight = canvas.getHeight() - height;
                 canvas.drawColor(0, android.graphics.PorterDuff.Mode.CLEAR);
-                canvas.drawBitmap(cacheBitmap,
+                canvas.drawBitmap(
+                        cacheBitmap,
                         new Rect(0, 0, cacheBitmap.getWidth(), cacheBitmap.getHeight()),
-                        new Rect(0,
-                                (canvas.getHeight() - height) / 2,
-                                width,
-                                (canvas.getHeight() - height) / 2 + height), null);
+                        new Rect(0, (rangeHeight) / 2, width, (rangeHeight) / 2 + height),
+                        null
+                );
                 getHolder().unlockCanvasAndPost(canvas);
             }
         }

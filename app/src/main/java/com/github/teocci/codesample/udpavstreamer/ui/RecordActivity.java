@@ -204,12 +204,10 @@ public class RecordActivity extends Activity implements OnClickListener, CustomC
         LogHelper.i(TAG, "init recorder with width = " + width + " and height = " + height + " and degree = "
                 + degree + " and isFrontFaceCamera = " + isFrontFaceCamera);
         int frameWidth, frameHeight;
-        /*
-         0 = 90 CounterClockwise and Vertical Flip (default)
-         1 = 90 Clockwise
-         2 = 90 CounterClockwise
-         3 = 90 Clockwise and Vertical Flip
-         */
+        // 0 = 90 CounterClockwise and Vertical Flip (default)
+        // 1 = 90 Clockwise
+        // 2 = 90 CounterClockwise
+        // 3 = 90 Clockwise and Vertical Flip
         switch (degree) {
             case 0:
                 frameWidth = width;

@@ -187,6 +187,7 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
                 }
             }
         }
+
         return mat;
     }
 
@@ -201,7 +202,7 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
             if (t > recorder.getTimestamp()) {
                 recorder.setTimestamp(t);
             }
-            LogHelper.e(TAG, "audioData: " + audioData);
+//            LogHelper.e(TAG, "audioData: " + audioData);
             recorder.recordSamples(audioData);
         } catch (FFmpegFrameRecorder.Exception e) {
             LogHelper.v(TAG, e.getMessage());
@@ -209,9 +210,7 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
         }
     }
 
-    private void initPartialWakeLock()
-    {
-    }
+    private void initPartialWakeLock() {}
 
     private void initLayout()
     {
@@ -228,15 +227,14 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
         Camera.CameraInfo info = new Camera.CameraInfo();
         Camera.getCameraInfo(cameraView.getCameraId(), info);
         boolean isFrontFaceCamera = info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT;
-        LogHelper.i(TAG, "init recorder with width = " + width + " and height = " + height + " and degree = "
+        LogHelper.e(TAG, "init recorder with width = " + width + " and height = " + height + " and degree = "
                 + degree + " and isFrontFaceCamera = " + isFrontFaceCamera);
         int frameWidth, frameHeight;
-        /*
-         0 = 90 CounterClockwise and Vertical Flip (default)
-         1 = 90 Clockwise
-         2 = 90 CounterClockwise
-         3 = 90 Clockwise and Vertical Flip
-         */
+
+        // 0 = 90 CounterClockwise and Vertical Flip (default)
+        // 1 = 90 Clockwise
+        // 2 = 90 CounterClockwise
+        // 3 = 90 Clockwise and Vertical Flip
         switch (degree) {
             case 0:
                 frameWidth = width;
@@ -261,21 +259,21 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
 
 //        LogHelper.i(TAG, "saved file path: " + savePath.getAbsolutePath());
 
-        String streamURL = "udp://192.168.1.125:8090";
+        String streamURL = "udp://192.168.1.127:8090";
         recorder = new FFmpegFrameRecorder(streamURL, frameWidth, frameHeight, 1);
         recorder.setInterleaved(false);
         // video options //
         recorder.setFormat("mpegts");
-//        recorder.setOption("protocol_whitelist", "tcp");
         recorder.setVideoOption("tune", "zerolatency");
         recorder.setVideoOption("preset", "ultrafast");
-//        recorder.setVideoOption("crf", "25");
         recorder.setVideoBitrate(5 * 1024 * 1024);
         recorder.setFrameRate(30);
         recorder.setSampleRate(AUDIO_SAMPLE_RATE);
         recorder.setVideoCodec(AV_CODEC_ID_H264);
         recorder.setAudioCodec(AV_CODEC_ID_AAC);
 
+//        recorder.setOption("protocol_whitelist", "tcp");
+//        recorder.setVideoOption("crf", "25");
 
 //        recorder.setFormat("rtp");
 //        recorder.setOption("protocol_whitelist", "udp");
@@ -283,7 +281,6 @@ public class StreamActivity extends Activity implements OnClickListener, CustomC
 //        recorder.setAudioCodec(AV_CODEC_ID_AAC);
 //        recorder.setFrameRate(30);
 //        recorder.setVideoBitrate(1024);
-
 
 //        recorder.setFormat("mp4");
 //        recorder.setVideoCodec(AV_CODEC_ID_MPEG4);

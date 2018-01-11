@@ -60,6 +60,7 @@ public class MainActivity extends AppCompatActivity
                         .show();
             }
         }
+
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 
@@ -68,8 +69,9 @@ public class MainActivity extends AppCompatActivity
         int cameraPermission = ContextCompat.checkSelfPermission(this, CAMERA);
         int storagePermission = ContextCompat.checkSelfPermission(this, WRITE_EXTERNAL_STORAGE);
         permissionReady = cameraPermission == PERMISSION_GRANTED && storagePermission == PERMISSION_GRANTED;
-        if (!permissionReady)
+        if (!permissionReady) {
             requirePermissions();
+        }
     }
 
     private void initEventHandlers()
